@@ -13,6 +13,8 @@ library(arulesViz)
 ### -------------------------------
 ### 1. SHOOT DENSITY
 ### -------------------------------
+par(mfrow = c(1, 1))
+
 data <- read_excel("shoot_density.xlsx")
 
 if (nrow(data) > 0 && !all(is.na(data))) {
@@ -80,6 +82,7 @@ if (nrow(data) > 0 && !all(is.na(data))) {
 }
 
 
+
 library(readxl)
 
 # Helper: remove outliers based on boxplot rule (same as base R)
@@ -92,7 +95,6 @@ remove_outliers <- function(x) {
   x_clean <- x[x >= stats$stats[1] & x <= stats$stats[5]]
   return(x_clean)
 }
-
 make_two_boxplots <- function(filename, title_text, y_label) {
   
   data <- read_excel(filename)
@@ -103,12 +105,12 @@ make_two_boxplots <- function(filename, title_text, y_label) {
   }
   
   # --- Separate groups ---
-  LB <- data$`Left Behind`
+  LB  <- data$`Left Behind`
   LBt <- data$`Left Between`
-  RB <- data$`Right Behind`
+  RB  <- data$`Right Behind`
   RBt <- data$`Right Between`
   
-  # --- Remove outliers within each group (same rule as 4-group boxplots) ---
+  # --- Remove outliers within each group ---
   LB_clean  <- remove_outliers(LB)
   LBt_clean <- remove_outliers(LBt)
   RB_clean  <- remove_outliers(RB)
@@ -124,9 +126,10 @@ make_two_boxplots <- function(filename, title_text, y_label) {
     return(NULL)
   }
   
-  boxplot(
+  # --- Plot ---
+  bp <- boxplot(
     list(Left = Left_clean, Right = Right_clean),
-    col      = c("blue", "red"),     # Left = blue, Right = red
+    col      = c("blue", "red"),
     names    = c("Left Zone", "Right Zone"),
     main     = title_text,
     xlab     = "Zone",
@@ -137,7 +140,21 @@ make_two_boxplots <- function(filename, title_text, y_label) {
     pch      = 19,
     col.out  = "red"
   )
+  
+  # --- Add sample size labels (n = ...) ---
+  left_n  <- length(Left_clean)
+  right_n <- length(Right_clean)
+  
+  text(
+    x = 1:2,
+    y = bp$stats[4, ] + 0.05 * diff(range(bp$stats)),  # above Q3
+    labels = c(paste0("n = ", left_n),
+               paste0("n = ", right_n)),
+    cex = 3,
+    font = 2
+  )
 }
+
 
 # -------------------------------------------------
 # 1. SHOOT DENSITY (Left vs Right, outliers removed per group)
@@ -166,8 +183,265 @@ make_two_boxplots(
   "Coverage (%)"
 )
 
+
+### -------------------------------
+### 4. BIOMASS RATIO
+### -------------------------------
+### -------------------------------
+### 4. BIOMASS RATIO
+### -------------------------------
+data <- read_excel("biomass_ratio.xlsx")
+
+if (nrow(data) > 0 && !all(is.na(data))) {
+  
+  bp <- boxplot(
+    data,
+    col   = c("red", "blue", "yellow", "green"),
+    names = c("Left Behind", "Left Between", "Right Behind", "Right Between"),
+    main  = "Boxplots for biomass ratio by Zone",
+    xlab  = "Zone",
+    ylab  = "Biomass Ratio (%)",
+    cex.lab  = 1.4,
+    cex.axis = 1.2,
+    cex.main = 1.5,
+    pch      = 19,
+    col.out  = "red"
+  )
+  
+  # ---- Sample sizes for each column ----
+  group_ns <- sapply(data, function(x) sum(!is.na(x)))
+  
+  # Place labels above Q3 for each box
+  text(
+    x = 1:4,
+    y = bp$stats[4, ] + 0.5 * diff(range(bp$stats)),
+    labels = paste0("n = ", group_ns),
+    cex = 3,
+    font = 2
+  )
+  
+} else {
+  message("Skipping biomass_ratio.xlsx (empty data)")
+  
+}
+
+make_two_boxplots(
+  "biomass_ratio.xlsx",
+  "Biomass ratio by Left vs Right",
+  "Biomass ratio (%)"
+)
+
+
+# Helper: remove outliers per boxplot rule
+remove_outliers <- function(x) {
+  x <- x[!is.na(x)]
+  if (length(x) == 0) return(x)
+  
+  stats <- boxplot.stats(x)
+  x_clean <- x[x >= stats$stats[1] & x <= stats$stats[5]]
+  return(x_clean)
+}
+
+make_two_boxplots_bb <- function(filename, title_text, y_label) {
+  
+  data <- read_excel(filename)
+  
+  if (nrow(data) == 0 || all(is.na(data))) {
+    message(paste("Skipping", filename, "(empty data)"))
+    return(NULL)
+  }
+  
+  # --- Original 4 groups ---
+  LB  <- data$`Left Behind`
+  RB  <- data$`Right Behind`
+  LBt <- data$`Left Between`
+  RBt <- data$`Right Between`
+  
+  # --- Remove outliers within each group ---
+  LB_clean  <- remove_outliers(LB)
+  RB_clean  <- remove_outliers(RB)
+  LBt_clean <- remove_outliers(LBt)
+  RBt_clean <- remove_outliers(RBt)
+  
+  # --- Combine into Behind vs Between ---
+  Behind_clean  <- c(LB_clean, RB_clean)
+  Between_clean <- c(LBt_clean, RBt_clean)
+  
+  # Safety check
+  if (length(Behind_clean) == 0 || length(Between_clean) == 0) {
+    message(paste("After outlier removal, one group is empty in", filename))
+    return(NULL)
+  }
+  
+  # --- Boxplot ---
+  bp <- boxplot(
+    list(Behind = Behind_clean, Between = Between_clean),
+    col      = c("orange", "cyan"),
+    names    = c("Behind", "Between"),
+    main     = title_text,
+    xlab     = "Zone",
+    ylab     = y_label,
+    cex.lab  = 1.4,
+    cex.axis = 1.2,
+    cex.main = 1.5,
+    pch      = 19,
+    col.out  = "red"
+  )
+  
+  # --- Sample sizes ---
+  behind_n  <- length(Behind_clean)
+  between_n <- length(Between_clean)
+  
+  text(
+    x = 1:2,
+    y = bp$stats[4, ] + 0.05 * diff(range(bp$stats)),  # above Q3
+    labels = c(paste0("n = ", behind_n),
+               paste0("n = ", between_n)),
+    cex = 3,
+    font = 2
+  )
+}
+
+
+make_two_boxplots_bb(
+  "biomass_ratio.xlsx",
+  "Biomass Ratio: Behind vs Between (outliers removed)",
+  "Biomass Ratio (shoot:root)"
+)
+
 library(readxl)
 
+# Outlier removal helper
+remove_outliers <- function(x) {
+  x <- x[!is.na(x)]
+  if (length(x) == 0) return(x)
+  stats <- boxplot.stats(x)
+  x[x >= stats$stats[1] & x <= stats$stats[5]]
+}
+
+test_normality_bb <- function(filename) {
+  
+  data <- read_excel(filename)
+  
+  # Extract 4 groups
+  LB  <- data$`Left Behind`
+  RB  <- data$`Right Behind`
+  LBt <- data$`Left Between`
+  RBt <- data$`Right Between`
+  
+  # Remove outliers per group
+  LB_clean  <- remove_outliers(LB)
+  RB_clean  <- remove_outliers(RB)
+  LBt_clean <- remove_outliers(LBt)
+  RBt_clean <- remove_outliers(RBt)
+  
+  # Combine for Behind vs Between
+  Behind_clean  <- c(LB_clean, RB_clean)
+  Between_clean <- c(LBt_clean, RBt_clean)
+  
+  # Normality tests
+  cat("\nNormality tests for:", filename, "\n")
+  cat("Behind (n =", length(Behind_clean), "):\n")
+  print(shapiro.test(Behind_clean))
+  
+  cat("\nBetween (n =", length(Between_clean), "):\n")
+  print(shapiro.test(Between_clean))
+  
+  cat("\n----------------------------------------\n")
+}
+test_normality_bb("biomass_ratio.xlsx")
+
+wilcox.test(Behind_clean, Between_clean, exact = FALSE)
+
+
+
+
+
+
+
+
+library(readxl)
+
+# same outlier function you used before
+remove_outliers <- function(x) {
+  x <- x[!is.na(x)]
+  if (length(x) == 0) return(x)
+  stats <- boxplot.stats(x)
+  x[x >= stats$stats[1] & x <= stats$stats[5]]
+}
+
+# --- Build Behind_clean and Between_clean in global env ---
+data <- read_excel("biomass_ratio.xlsx")
+
+LB  <- data$`Left Behind`
+RB  <- data$`Right Behind`
+LBt <- data$`Left Between`
+RBt <- data$`Right Between`
+
+LB_clean  <- remove_outliers(LB)
+RB_clean  <- remove_outliers(RB)
+LBt_clean <- remove_outliers(LBt)
+RBt_clean <- remove_outliers(RBt)
+
+Behind_clean  <- c(LB_clean, RB_clean)
+Between_clean <- c(LBt_clean, RBt_clean)
+
+wilcox.test(Behind_clean, Between_clean, exact = FALSE)
+
+
+
+
+
+library(readxl)
+
+# Outlier removal helper
+remove_outliers <- function(x) {
+  x <- x[!is.na(x)]
+  if (length(x) == 0) return(x)
+  
+  stats <- boxplot.stats(x)
+  x[x >= stats$stats[1] & x <= stats$stats[5]]
+}
+
+test_normality_4groups <- function(filename) {
+  
+  data <- read_excel(filename)
+  
+  # Extract groups
+  LB  <- remove_outliers(data$`Left Behind`)
+  LBt <- remove_outliers(data$`Left Between`)
+  RB  <- remove_outliers(data$`Right Behind`)
+  RBt <- remove_outliers(data$`Right Between`)
+  
+  cat("\nNormality tests for:", filename, "\n")
+  
+  # Left Behind
+  cat("\nLeft Behind (n =", length(LB), "):\n")
+  print(shapiro.test(LB))
+  
+  # Left Between
+  cat("\nLeft Between (n =", length(LBt), "):\n")
+  print(shapiro.test(LBt))
+  
+  # Right Behind
+  cat("\nRight Behind (n =", length(RB), "):\n")
+  print(shapiro.test(RB))
+  
+  # Right Between
+  cat("\nRight Between (n =", length(RBt), "):\n")
+  print(shapiro.test(RBt))
+  
+  cat("\n----------------------------------------\n")
+}
+
+test_normality_4groups("biomass_ratio.xlsx")
+
+
+
+
+
+
+library(readxl)
 make_two_boxplots <- function(filename, title_text, y_label) {
   
   data <- read_excel(filename)
@@ -185,10 +459,10 @@ make_two_boxplots <- function(filename, title_text, y_label) {
   Left  <- Left[!is.na(Left)]
   Right <- Right[!is.na(Right)]
   
-  # Use a list so lengths can differ
-  boxplot(
+  # ---- Boxplot (save output as bp) ----
+  bp <- boxplot(
     list(Left = Left, Right = Right),
-    col      = c("blue", "red"),     # Left = blue, Right = red
+    col      = c("blue", "red"),
     names    = c("Left Zone", "Right Zone"),
     main     = title_text,
     xlab     = "Zone",
@@ -199,7 +473,22 @@ make_two_boxplots <- function(filename, title_text, y_label) {
     pch      = 19,
     col.out  = "red"
   )
+  
+  # ---- Sample size ----
+  left_n  <- length(Left)
+  right_n <- length(Right)
+  
+  # ---- Add labels above Q3 ----
+  text(
+    x = 1:2,
+    y = bp$stats[4, ] + 0.5 * diff(range(bp$stats)),
+    labels = c(paste0("n = ", left_n),
+               paste0("n = ", right_n)),
+    cex = 3,
+    font = 2
+  )
 }
+
 
 # -------------------------------------------------
 # 1. SHOOT DENSITY
